@@ -1,5 +1,8 @@
 const express = require("express");
 const exphbs = require("express-handlebars");
+const methodOverride = require("method-override");
+const flash = require("connect-flash");
+const session = require("express-session");
 const bodyParser = require("body-parser");
 const mongoose = require("mongoose");
 
@@ -27,9 +30,29 @@ app.set("view engine", "handlebars");
 
 // Body parser middleware
 app.use(bodyParser.urlencoded({ extended: false }));
-
 // parse application/json
 app.use(bodyParser.json());
+// Method override middleware
+app.use(methodOverride("_method"));
+
+// Express session middleware
+app.use(
+  session({
+    secret: "secret",
+    resave: true,
+    saveUninitialized: true
+  })
+);
+
+app.use(flash());
+
+// Global Variables
+app.use(function(req, res, next) {
+  res.locals.success_msg = req.flash("success_msg");
+  res.locals.error_msg = req.flash("error_msg");
+  res.locals.error = req.flash("error");
+  next();
+});
 
 // Index Route
 app.get("/", (req, res) => {
@@ -64,10 +87,9 @@ app.get("/ideas/add", (req, res) => {
 app.get("/ideas/edit/:id", (req, res) => {
   Idea.findOne({
     _id: req.params.id
-  })
-  .then(idea => {
-    res.render('ideas/edit', {
-      idea:idea
+  }).then(idea => {
+    res.render("ideas/edit", {
+      idea: idea
     });
   });
 });
@@ -95,9 +117,34 @@ app.post("/ideas", (req, res) => {
       details: req.body.details
     };
     new Idea(newUser).save().then(idea => {
+      req.flash("success_msg", "Video Idea Added");
       res.redirect("/ideas");
     });
   }
+});
+
+// Edit Form Process
+app.put("/ideas/:id", (req, res) => {
+  Idea.findOne({
+    _id: req.params.id
+  }).then(idea => {
+    //new values
+    idea.title = req.body.title;
+    idea.details = req.body.details;
+
+    idea.save().then(idea => {
+      req.flash("success_msg", "Video idea updated");
+      res.redirect("/ideas");
+    });
+  });
+});
+
+// Delete Idea
+app.delete("/ideas/:id", (req, res) => {
+  Idea.remove({ _id: req.params.id }).then(() => {
+    req.flash("success_msg", "Video idea removed");
+    res.redirect("/ideas");
+  });
 });
 
 const port = 5000;
